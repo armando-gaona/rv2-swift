@@ -1,19 +1,21 @@
-"""RV2-Swift: Reader v2 inference, faster, same weights.
+"""RV2-Swift: faster Reader v2 / Reader V3 inference on GPU, same checkpoint.
 
 Drop-in wrapper around villa's `koine_machines.inference.infer`. It takes the same arguments and adds two changes:
 
-1. Larger sliding window (--tile, default 384 px instead of 128). The network is built from the checkpoint exactly as
-   before (128), only the inference window grows. Fewer, larger tiles mean fewer seams and about 4x fewer forward passes.
+1. Larger sliding window (--tile, default 384 px). The network is built from the checkpoint exactly as before, only the
+   inference window grows. With Reader v2 (trained at 128) this changes the map; use --tile 0 to keep the checkpoint's
+   own window (e.g. Reader V3, trained at 384).
 2. Robust normalization on the GPU. Upstream, every DataLoader worker runs normalize_robust (percentiles, median, MAD)
    on the CPU for each patch, and on a GPU machine that becomes the bottleneck. Here workers hand over the raw uint8
    patch and the GPU normalizes the whole batch with the same math (linear quantiles, same fallbacks).
-   Output is identical to the CPU path (max abs difference 0.0). Without CUDA this part does nothing.
+   Reader v2: identical to the CPU path (max abs difference 0.0); Reader V3: 0.002 % of pixels differ by 1/255.
+   Without CUDA this part does nothing.
 
 Usage (same positional arguments as infer.py):
     python rv2_swift.py <input.zarr> <reader-v2.pth> <out.tif> --stride 256 --blend-mode hann \
         --batch-size 4 --num-workers 4 --no-compile --direction forward
 Extra options:
-    --tile N          inference window in px (default 384; 0 = upstream behaviour)
+    --tile N          inference window in px (default 384; 0 = the checkpoint's own window)
     --no-gpu-norm     keep normalization on the CPU workers
 """
 import sys
